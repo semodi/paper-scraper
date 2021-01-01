@@ -4,6 +4,7 @@ import pandas as pd
 import datetime
 import time
 import mysql_config
+import sys
 MAX_ARTICLES = 10000
 
 def make_entry(d):
@@ -16,7 +17,16 @@ def make_entry(d):
     authors = ', '.join(d['authors'])
     return id_, updated, title, summary, tags, authors
 
-if __name__ == '__main__':
+def handler(event, context):
+    conn = pymysql.connect(mysql_config.host,
+                           user=mysql_config.name,
+                           passwd=mysql_config.password,
+                           connect_timeout=5,
+                           port=mysql_config.port)
+    c = conn.cursor()
+    c.execute(''' create database if not exists arxiv''')
+    conn.commit()
+    conn.close()
 
     conn = pymysql.connect(mysql_config.host,
                            user=mysql_config.name,
@@ -53,9 +63,7 @@ if __name__ == '__main__':
                 FROM articles''', conn)['dt'][0]
 
     starting_over = False
-    if latest:
-        latest = datetime.datetime.strptime(latest, '%Y-%m-%d %H:%M:%S')
-    else:
+    if not latest:
         print('No articles contained in table. Starting over...')
         latest = datetime.datetime(1900, 1, 1)
         starting_over = True
@@ -78,3 +86,5 @@ if __name__ == '__main__':
     if not starting_over: print('Total number of articles added: {:d}'.format(cnt))
     conn.commit()
     conn.close()
+
+    return 'Total number of articles added: {:d}'.format(cnt)

@@ -235,5 +235,4 @@ def filter_papers(time_lim, no_papers):
 
 
 if __name__ == '__main__':
-# def hanlder(event, context):
-    app.run_server(debug=True, host='0.0.0.0')
+    app.run_server(debug=False, host='0.0.0.0')
