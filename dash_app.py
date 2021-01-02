@@ -11,7 +11,7 @@ import requests
 import json
 import mysql_config
 import warnings
-recommender_url = 'http://0.0.0.0:6545/api/'
+recommender_url = 'https://mf9ay4s4u2.execute-api.us-east-2.amazonaws.com/default/'
 
 # Test user
 USERNAME = 'johndoe'
@@ -29,11 +29,10 @@ def connect():
 
 def get_recommendations():
     # Recommendations based on saved bookmarks
-    headers = {'content-type': 'application/json', 'Accept-Charset': 'UTF-8'}
     data = {'user_id': U_ID, 'no_papers':1000}
     data = json.dumps(data)
     try:
-        r = requests.post(recommender_url + 'recommend/', data=data, headers=headers)
+        r = requests.post(recommender_url + 'recommend', data=data)
         recommendations = json.loads(r.text)
     except Exception as e:
         print(e)

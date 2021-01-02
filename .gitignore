@@ -105,3 +105,4 @@ log/
 *.json
 index*
 similarity_index
+wordnet.tar.gz
