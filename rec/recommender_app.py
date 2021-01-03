@@ -1,4 +1,5 @@
 from recommend import get_recommendations
+import json
 
 def handler(event, context):
     if 'body' in event:

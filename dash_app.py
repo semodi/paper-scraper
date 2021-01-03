@@ -29,11 +29,13 @@ def connect():
 
 def get_recommendations():
     # Recommendations based on saved bookmarks
+    headers = {'content-type': 'application/json', 'Accept-Charset': 'UTF-8'}
     data = {'user_id': U_ID, 'no_papers':1000}
     data = json.dumps(data)
     try:
-        r = requests.post(recommender_url + 'recommend', data=data)
+        r = requests.post(recommender_url + 'recommend', data=data, headers=headers)
         recommendations = json.loads(r.text)
+        recommendations = recommendations[:-1]
     except Exception as e:
         print(e)
         print('Recommendations could not be retrieved')
