@@ -1,14 +1,31 @@
-from recommend import get_recommendations
+from flask import Flask, request, redirect, url_for, flash, jsonify
+import numpy as np
+import pickle as p
 import json
+import recommend
 
-def handler(event, context):
-    if 'body' in event:
-        data = json.loads(event['body'])
-    else:
-        data = event
-    user_id = data.get('user_id', 0)
-    cutoff_days = data.get('cutoff_days', 20)
-    no_papers = data.get('no_papers', 10)
-    results = get_recommendations(user_id, cutoff_days, no_papers).to_dict('records')
-    results.append(event)
-    return results
+app = Flask(__name__)
+
+
+@app.route('/api/index/', methods=['POST'])
+def make_index():
+    recommender.create_index()
+    return "{success}"
+
+@app.route('/api/recommend', methods=['POST'])
+def get_recommendation():
+    data = request.get_json()
+    recommendation, distances, query = recommend.get_recommendations(data.get('user_id', 0),
+                                                     data.get('cutoff_days', 20),
+                                                     data.get('no_papers', 10),
+                                                     data.get('based_on', None))
+
+    results = {}
+    results['recommendations'] = recommendation.to_dict('records')
+    results['distances'] = distances.tolist()
+    results['query'] = query.to_dict('records')
+    return json.dumps(results)
+
+if __name__ == '__main__':
+    # recommend.create_index()
+    app.run(debug=True, host='0.0.0.0',port='6545')

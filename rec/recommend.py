@@ -39,25 +39,30 @@ class BufferShard(gensim.similarities.docsim.Shard):
         return self.index
 gensim.similarities.docsim.Shard = BufferShard
 
+def pickle_save(obj, fname):
+    pickled = pickle.dumps(obj)
+    stream = BytesIO(pickled)
+    # s3.upload_fileobj(stream, bucket_name, fname)
+    with open(fname, 'wb') as file:
+        file.write(pickled)
+
+def load_unpickle(fname):
+    stream = BytesIO()
+    # s3.download_fileobj(bucket_name, fname, stream)
+    with open(fname, 'rb') as file:
+        obj = pickle.loads(file.read())
+    # obj = pickle.loads(stream.getvalue())
+    return obj
 
 stemmer = PorterStemmer()
 s3 = boto3.client('s3')
 bucket_name = 'arxiv-models'
 
-def pickle_save(obj, fname):
-    pickled = pickle.dumps(obj)
-    stream = BytesIO(pickled)
-    s3.upload_fileobj(stream, bucket_name, fname)
-    # with open(fname, 'wb') as file:
-    #     file.write(pickled)
+idx_to_arxiv = load_unpickle('idx_to_arxiv.pckl')
+tfidf_model = load_unpickle('tfidf_model.pckl')
+corpus_dict = load_unpickle('corpus_dict.pckl')
+index = load_unpickle('similarity_index.pckl')
 
-def load_unpickle(fname):
-    stream = BytesIO()
-    s3.download_fileobj(bucket_name, fname, stream)
-    # with open(fname, 'rb') as file:
-    #     obj = pickle.loads(file.read())
-    obj = pickle.loads(stream.getvalue())
-    return obj
 
 def lemmatize_stemming(text):
     return stemmer.stem(WordNetLemmatizer().lemmatize(text, pos='v'))
@@ -113,38 +118,53 @@ def create_index():
     conn.close()
 
 
-def get_recommendations(user_id, cutoff_days = 20, no_papers=10):
+def get_recommendations(user_id, cutoff_days = 20, no_papers=10,
+                        based_on = None):
     conn = connect()
-    df_bookmarks = pd.read_sql(""" SELECT
-                                   articles.id as id,
-                                   bookmarks.user_id as user_id,
-                                   DATE(updated) as dt,
-                                   authors,
-                                   title,
-                                   summary
-                                   FROM articles
-                                   INNER JOIN bookmarks
-                                   ON articles.id = bookmarks.article_id
-                                   WHERE bookmarks.user_id = {}
-                                   AND DATE(updated) > DATE_ADD(DATE(NOW()), INTERVAL {:d} day)""".format(user_id, -cutoff_days), conn)
+    if based_on is None:
+        df_bookmarks = pd.read_sql(""" SELECT
+                                       articles.id as id,
+                                       bookmarks.user_id as user_id,
+                                       DATE(updated) as updated,
+                                       authors,
+                                       title,
+                                       summary
+                                       FROM articles
+                                       INNER JOIN bookmarks
+                                       ON articles.id = bookmarks.article_id
+                                       WHERE bookmarks.user_id = {}
+                                       AND DATE(updated) > DATE_ADD(DATE(NOW()), INTERVAL {:d} day)""".format(user_id, -cutoff_days), conn)
+    else:
+        df_bookmarks = pd.DataFrame(based_on)
     if len(df_bookmarks):
-        idx_to_arxiv = load_unpickle('idx_to_arxiv.pckl')
         articles = (df_bookmarks['title'] + '. ' + df_bookmarks['summary']).tolist()
-        tfidf, _ = get_tfidf(articles, load_unpickle('tfidf_model.pckl'), load_unpickle('corpus_dict.pckl'))
-        index = load_unpickle('similarity_index.pckl')
+        tfidf, _ = get_tfidf(articles, tfidf_model, corpus_dict)
+
         sim = index[tfidf]
-        sim = np.argsort(sim, axis=-1)[:,:-1][:,::-1].T.flatten()[:no_papers*no_papers]
+
+        no_bm = len(df_bookmarks)
+        sim = np.argsort(sim, axis=-1)[:,::-1].T.flatten()[:(no_papers)*(no_papers)]
         _, unq = np.unique(sim, return_index=True)
         sim = sim[np.sort(unq)]
-        rec = [idx_to_arxiv[s] for s in sim[:no_papers]]
+        sim = sim[:no_papers+no_bm]
+        rec_id = {idx_to_arxiv[s]:i for i, s in enumerate(sim[no_bm:])}
+
         rec = pd.read_sql(""" SELECT * from articles
-                     WHERE id in ('{}') """.format("','".join(rec)), conn)
+                     WHERE id in ('{}')
+                     ORDER BY updated DESC""".format("','".join(rec_id.keys())), conn)
         rec['updated'] = rec['updated'].apply(str)
+        ordering = [rec_id[id] for id in rec['id']]
+        sim[no_bm:] = [sim[no_bm:][idx] for idx in ordering]
+        A = np.zeros([len(sim),len(sim)])
+        for i, s in enumerate(sim):
+            A[i,:] =  index.similarity_by_id(s)[sim]
+
+        df_bookmarks['updated'] = df_bookmarks['updated'].apply(str)
         conn.close()
-        return rec
+        return rec, A, df_bookmarks
     else:
         conn.close()
-        return None
+        return None,None
 
 def handler(event, context):
 
@@ -158,3 +178,6 @@ def handler(event, context):
     results = get_recommendations(user_id, cutoff_days, no_papers).to_dict('records')
     results.append(event)
     return results
+
+if __name__ == '__main__':
+    create_index()

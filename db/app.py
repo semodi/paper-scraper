@@ -5,7 +5,7 @@ import datetime
 import time
 import mysql_config
 import sys
-MAX_ARTICLES = 10000
+MAX_ARTICLES = 1000
 
 def make_entry(d):
     """ Create database entry from query result"""
@@ -88,3 +88,7 @@ def handler(event, context):
     conn.close()
 
     return 'Total number of articles added: {:d}'.format(cnt)
+
+if __name__ == '__main__':
+    handler(None,None)
+
