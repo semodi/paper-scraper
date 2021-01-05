@@ -8,7 +8,6 @@ COPY recommend.py ./
 COPY recommender_app.py ./app.py
 COPY mysql_config.py ./
 COPY wordnet.tar.gz ./
-COPY *.pckl ./
 RUN tar -xzf wordnet.tar.gz
 ENV NLTK_DATA ./
 
