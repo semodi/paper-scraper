@@ -42,16 +42,16 @@ gensim.similarities.docsim.Shard = BufferShard
 def pickle_save(obj, fname):
     pickled = pickle.dumps(obj)
     stream = BytesIO(pickled)
-    # s3.upload_fileobj(stream, bucket_name, fname)
-    with open(fname, 'wb') as file:
-        file.write(pickled)
+    s3.upload_fileobj(stream, bucket_name, fname)
+    # with open(fname, 'wb') as file:
+    #     file.write(pickled)
 
 def load_unpickle(fname):
     stream = BytesIO()
-    # s3.download_fileobj(bucket_name, fname, stream)
-    with open(fname, 'rb') as file:
-        obj = pickle.loads(file.read())
-    # obj = pickle.loads(stream.getvalue())
+    s3.download_fileobj(bucket_name, fname, stream)
+    # with open(fname, 'rb') as file:
+    #     obj = pickle.loads(file.read())
+    obj = pickle.loads(stream.getvalue())
     return obj
 
 stemmer = PorterStemmer()

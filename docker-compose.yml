@@ -28,7 +28,7 @@ services:
       - "db"
       - "rec"
     ports:
-      - "8050:80"
+      - "8080:8080"
     networks:
       - mynetwork
 

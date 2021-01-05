@@ -10,8 +10,8 @@ COPY assets/ /app/assets
 COPY dash_app.py /app
 COPY mysql_config.py /app
 
-ENV PORT 80
-EXPOSE 80
+ENV PORT 8080
+EXPOSE 8080
 
 # Set the CMD to your handler
 CMD [ "python3", "dash_app.py" ]
