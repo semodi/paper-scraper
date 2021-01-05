@@ -29,6 +29,20 @@ def connect():
 
 # r = requests.post(recommender_url + 'index/')
 
+def get_authors_short(df):
+    def names_to_dotted(names):
+        name_to_dotted = lambda x: x[0] + '.'
+        names = [n.split(' ') for n in names.split(', ')]
+        names = [' '.join(map(name_to_dotted,n[:-1])) + ' ' + n[-1] for n in names]
+        return ', '.join(names)
+
+    if isinstance(df, pd.DataFrame):
+        df['authors_short'] = df['authors'].apply(names_to_dotted)
+    else:
+        for i, record in enumerate(df):
+            df[i]['authors_short'] = names_to_dotted(record['authors'])
+
+    return df
 
 def get_recommendations(no_papers=10, cutoff_days = 20, based_on = None, return_A = False):
     # Recommendations based on saved bookmarks
@@ -63,19 +77,19 @@ def get_recommendations(no_papers=10, cutoff_days = 20, based_on = None, return_
         return cond_rec, recommendations
 
 cond_rec, recommendations, query, distances = get_recommendations(return_A=True)
-display_columns = ['title', 'authors']
+display_columns = ['title', 'authors_short']
 day = lambda i: '{:d} days ago'.format(abs(i)) if i != 0 else 'today'
 
 network_fig, colors = graph.get_graph(query + recommendations, distances, n_query=len(query))
 # =============== LAYOUT ===================
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+# external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+# app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app = dash.Dash(
+    __name__,
+    meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
+)
 app.title = 'paper-scraper'
-# app = dash.Dash(
-#     __name__,
-#     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
-# )
 panel_color = '#161a28'
 suffix_row = "_row"
 suffix_button_id = "_button"
@@ -179,7 +193,7 @@ app.layout = html.Div(children=
                     ],
                     style_data_conditional= cond_rec,
                     row_selectable="multi",
-                    columns=[{"name": i, "id": i} for i in display_columns],
+                    columns=[{"name": i.split('_')[0], "id": i} for i in display_columns],
         #             data=df.to_dict('records'),
                     style_table={'width': '100%', 'height': 500,'overflowY':'scroll'})
                     ],className='eleven columns'),
@@ -253,7 +267,7 @@ app.layout = html.Div(children=
                         {"selector": "tr", "rule": "background-color: transparent"},
                     ],
                     row_selectable="multi",
-                    columns=[{"name": i, "id": i} for i in display_columns],
+                    columns=[{"name": i.split('_')[0], "id": i} for i in display_columns],
         #             data=df.to_dict('records'),
                     style_table={'width': '100%', 'height': 500,'overflowY':'scroll'})
                     ],className='eleven columns'),
@@ -333,7 +347,7 @@ app.layout = html.Div(children=
                     {"selector": "table", "rule": "--accent: #1e2130;"},
                     {"selector": "tr", "rule": "background-color: transparent"},
                 ],
-                columns=[{"name": i, "id": i} for i in display_columns],
+                columns=[{"name": i.split('_')[0], "id": i} for i in display_columns],
     #             data=df_bookmarks.to_dict('records'),
                 style_table={'width': '99%', 'height': 308,'overflowY':'scroll'}),
                 ]),
@@ -419,6 +433,7 @@ def update_bookmark_table(value, data):
                                    WHERE bookmarks.user_id = {}
                                    ORDER BY bookmarks.created DESC""".format(U_ID), conn)
         conn.close()
+        df_bookmarks = get_authors_short(df_bookmarks)
         return df_bookmarks.to_dict('records')
     else:
         print('Nothing to update')
@@ -509,7 +524,7 @@ def update_recommendations(time_lim, no_papers):
             'color': c,
             } for r, c in zip(total,colors)]
 
-    return cond_rec, recommendations, network_fig_, cond_rec_bm
+    return cond_rec, get_authors_short(recommendations), network_fig_, cond_rec_bm
 
 @app.callback(
         Output('table-papers', 'data'),
@@ -527,6 +542,7 @@ def filter_papers(time_lim, no_papers):
                                                                                                           no_papers)
     df = pd.read_sql(query, conn)
     conn.close()
+    df = get_authors_short(df)
 
     return df.to_dict('records')
 
