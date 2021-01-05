@@ -5,6 +5,8 @@ WORKDIR /app
 COPY ./requirements.txt /app
 RUN pip install -r requirements.txt
 
+COPY graph.py /app
+COPY assets/ /app/assets
 COPY dash_app.py /app
 COPY mysql_config.py /app
 

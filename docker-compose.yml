@@ -6,27 +6,28 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: mypassword
-    ports: 
+    ports:
       - "6603:3306"
     networks:
       - mynetwork
-  rec: 
+  rec:
     build:
       context: ./rec
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.rec
     depends_on:
       - "db"
     ports:
       - "6545:6545"
     networks:
       - mynetwork
-  dash: 
+  web:
     build:
-      context: .
+      context: ./web
       dockerfile: Dockerfile
     depends_on:
       - "db"
-    ports: 
+      - "rec"
+    ports:
       - "8050:80"
     networks:
       - mynetwork

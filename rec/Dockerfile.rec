@@ -1,4 +1,5 @@
-FROM public.ecr.aws/lambda/python:3.6.2020.12.18.22
+#FROM public.ecr.aws/lambda/python:3.6.2020.12.18.22
+FROM python:3.6
 
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
@@ -7,8 +8,10 @@ COPY recommend.py ./
 COPY recommender_app.py ./app.py
 COPY mysql_config.py ./
 COPY wordnet.tar.gz ./
-RUN tar -xzf wordnet.tar.gz 
+COPY *.pckl ./
+RUN tar -xzf wordnet.tar.gz
 ENV NLTK_DATA ./
 
 # Set the CMD to your handler
-CMD [ "app.handler" ]
+# CMD [ "app.handler" ]
+CMD ["python3", "app.py"]

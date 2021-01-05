@@ -7,3 +7,4 @@ pandas==1.0.3
 nltk==3.5
 pymysql==0.10.1
 pymysql[rsa]
+boto3
