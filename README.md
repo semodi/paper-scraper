@@ -4,11 +4,10 @@ Paper-scraper is meant as a tool to interactively explore recent research articl
 
 ## Front end
 
+![](img/1.png)
 
+The frontend is designed to be light-weight, reponsive and intuitive. Its design is largely inspired by [this app](https://github.com/plotly/dash-sample-apps/tree/master/apps/dash-manufacture-spc-dashboard)
 
-![](../assets/img/paper-scraper/1.png)
-
-The frontend is designed to be light-weight, reponsive and intuitive. 
 The left-hand side column is divided into three tabs: 
 - Recent Papers 
 - Recommended 
@@ -20,18 +19,18 @@ The *Recent Papers* tab displays recently published or updated articles. The use
 
 Based on these bookmarks the *Recommended* tab shows articles that are recommended to the user. If no bookmarks have been saved, this table will be empty. Again, the user can decide how many recommendations are generated and limit the time period from which articles are picked.
 
-![](../assets/img/paper-scraper/2.png)
+![](/img/2.png)
 
 The *Explore* tab visualizes bookmarked and recommended articles and their relationships to each other. Article similarities are roughly mapped to distances in the displayed graph and relationships are indicated by connected nodes. Based on a spectral clustering algorithms the articles are grouped into categories and colored accordingly. A corresponding color code is used in the bookmarks table. 
 
-![](../assets/img/paper-scraper/3.png)
+![](/img/3.png)
 
 Within the graph, the user can hover over items to display detailed information. Clicking on articles will 'zoom in' on them and show a new network made up of articles similar to the selected one. This can be repeated an arbitrary number of times, allowing the user to traverse the entire corpus of articles. Clicking on the red node, which indicates the selection made in the parent graph, will undo the last zoom.
 
 
 ## Back end and AWS network
 
-![](../assets/img/paper-scraper/aws_net.png)
+![](/img/aws_net.png)
 
 The app can be subdivided into four interconnected but independent tasks:
 
