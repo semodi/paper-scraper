@@ -16,7 +16,7 @@ import pickle
 import graph
 # recommender_url = 'https://mf9ay4s4u2.execute-api.us-east-2.amazonaws.com/default/'
 # recommender_url = 'http://localhost:6545/api/'
-recommender_url = 'http://rec:6545/api/'
+recommender_url = 'http://0.0.0.0:6545/api/'
 # Test user
 USERNAME = 'johndoe'
 U_ID = 0
