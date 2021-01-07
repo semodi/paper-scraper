@@ -2,9 +2,18 @@
 
 Paper-scraper is meant as a tool to interactively explore research articles posted on the arXiv. It taylors recommendations by inferring users' interests from their bookmarked articles. Starting from these recommendations users can explore related research by traversing a connected network of articles.
 
+## Installation
+The `main` branch is configured to run locally, without any necessary customization.
+
+Requirements:
+- Docker
+- docker-compose
+
+Run the app with
+`docker-compose up` 
+in the root directory. The front end can be accessed at `localhost:8080`.
+
 ## Front end
-
-
 
 ![](img/1.png)
 
