@@ -3,14 +3,19 @@ import numpy as np
 import pickle as p
 import json
 import recommend
-
+import logging
 app = Flask(__name__)
 
 
-@app.route('/api/index/', methods=['POST'])
+@app.route('/api/index', methods=['POST'])
 def make_index():
-    recommender.create_index()
-    return "{success}"
+    try:
+        recommend.create_index()
+        return "{ Success }"
+    except Exception as e:
+        logging.error(e)
+        raise e
+        return "{An unknown error occured during indexing}"
 
 @app.route('/api/recommend', methods=['POST'])
 def get_recommendation():

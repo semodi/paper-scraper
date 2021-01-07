@@ -14,11 +14,10 @@ import warnings
 import time
 import pickle
 import graph
-# recommender_url = 'https://mf9ay4s4u2.execute-api.us-east-2.amazonaws.com/default/'
-# recommender_url = 'http://localhost:6545/api/'
-recommender_url = 'http://0.0.0.0:6545/api/'
+import logging
+recommender_url = 'http://rec:6545/api/'
 # Test user
-USERNAME = 'johndoe'
+USERNAME = 'root'
 U_ID = 0
 def connect():
     return pymysql.connect(host=mysql_config.host,
@@ -356,6 +355,7 @@ app.layout = html.Div(children=
                 html.P(id='selected-papers'),
                 html.P(id='selected-rec'),
                 html.P(id='loading-rec'),
+                html.P(id='ref-trigger'),
                 html.P(id='placeholder'),
         ],style={'backgroundColor':panel_color}),
         ], className='five columns'),
@@ -441,19 +441,6 @@ def update_bookmark_table(value, data):
         return data
 
 
-# @app.callback(
-#         Output('network-graph', 'figure'),
-#         Input('reset-button','n_clicks'),
-#         State('network-graph-master', 'figure'))
-# def reset_default(clicks, fig):
-#     print(clicks)
-#     print('default', fig is None)
-#     if fig:
-#         return fig
-#
-
-
-
 @app.callback(
     [Output('textarea-abstract','children'),
      Output('gotolink','children'),
@@ -512,21 +499,31 @@ def get_active(active_cell_bm, active_cell_p, active_cell_rec, hoverData, data_b
         Output('network-graph-master', 'figure'),
         Output('table-bookmarks','style_data_conditional')],
         [Input('time-slider-rec', 'value'),
-         Input('slider-no-papers-rec', 'value')])
-def update_recommendations(time_lim, no_papers):
-    cond_rec, recommendations, query, distances = get_recommendations(no_papers, time_lim, return_A=True)
+         Input('slider-no-papers-rec', 'value'),
+         Input('ref-trigger','value')],
+        [State('table-papers','style_data_conditional'),
+         State('table-rec', 'data'),
+         State('network-graph-master', 'figure'),
+         State('table-bookmarks','style_data_conditional')])
+def update_recommendations(time_lim, no_papers, ref_trigger, *states):
+    logging.warning(ref_trigger)
+    if ref_trigger:
+        cond_rec, recommendations, query, distances = get_recommendations(no_papers, time_lim, return_A=True)
 
-    total = query + recommendations
-    network_fig_, colors = graph.get_graph(total, distances, n_query=len(query))
-    cond_rec_bm = [{
-            'if': {
-                'filter_query': '{{id}} = {}'.format(r['id']) # matching rows of a hidden column with the id, `id`
-            },
-            'color': c,
-            } for r, c in zip(total,colors)]
-
-    return cond_rec, get_authors_short(recommendations), network_fig_, cond_rec_bm
-
+        total = query + recommendations
+        network_fig_, colors = graph.get_graph(total, distances, n_query=len(query))
+        cond_rec_bm = [{
+                'if': {
+                    'filter_query': '{{id}} = {}'.format(r['id']) # matching rows of a hidden column with the id, `id`
+                },
+                'color': c,
+                } for r, c in zip(total,colors)]
+        if len(total):
+            return cond_rec, get_authors_short(recommendations), network_fig_, cond_rec_bm
+        else:
+            return [],[{'title':'No bookmarks yet...','authors':''}], network_fig_, cond_rec_bm
+    else:
+        return states
 @app.callback(
         Output('table-papers', 'data'),
         [Input('time-slider', 'value'),
@@ -544,8 +541,10 @@ def filter_papers(time_lim, no_papers):
     df = pd.read_sql(query, conn)
     conn.close()
     df = get_authors_short(df)
-
-    return df.to_dict('records')
+    if len(df):
+        return df.to_dict('records')
+    else:
+        return [{'title':'Pulling recent articles from arXiv', 'authors':''}]
 
 @app.callback(
     [Output('network-graph', 'figure'),
@@ -577,11 +576,16 @@ def display_click_data(clickData,fig_master,n_clicks, fig, fig_1,zoomed):
         return fig, fig_1, 0
 
 @app.callback(
-    Output('network-graph','hoverData'),
-    Input('tabs','value')
+    [Output('network-graph','hoverData'),
+    Output('ref-trigger', 'value')],
+    Input('tabs','value'),
+    State('time-slider-rec','value')
 )
-def reset_hover_data(inp):
-    return None
+def switch_tabs(inp, value):
+    if inp == 'tab2':
+        return None, 1
+    else:
+        return None, 0
 
 if __name__ == '__main__':
     app.run_server(debug=False, host='0.0.0.0', port='8080')

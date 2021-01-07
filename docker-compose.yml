@@ -1,11 +1,36 @@
 version: "3"
 services:
+  db:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: mypassword
+    ports:
+      - "6603:3306"
+    networks:
+      - mynetwork
+  arxv:
+    build:
+      context: ./arxv
+      dockerfile: Dockerfile
+    ports:
+      - "6540:6540"
+    networks:
+      - mynetwork
   rec:
     build:
       context: ./rec
-      dockerfile: Dockerfile.rec
+      dockerfile: Dockerfile
     ports:
       - "6545:6545"
+    networks:
+      - mynetwork
+  period:
+    build:
+      context: ./period
+      dockerfile: Dockerfile
+    restart: unless-stopped
     networks:
       - mynetwork
   web:

@@ -1,11 +1,13 @@
 import arxiv
+from flask import Flask, request, redirect, url_for, flash, jsonify
 import pymysql
 import pandas as pd
 import datetime
 import time
 import mysql_config
 import sys
-MAX_ARTICLES = 1000
+import logging
+MAX_ARTICLES = 10000
 
 def make_entry(d):
     """ Create database entry from query result"""
@@ -17,7 +19,7 @@ def make_entry(d):
     authors = ', '.join(d['authors'])
     return id_, updated, title, summary, tags, authors
 
-def handler(event, context):
+def pull_data():
     conn = pymysql.connect(mysql_config.host,
                            user=mysql_config.name,
                            passwd=mysql_config.password,
@@ -64,13 +66,13 @@ def handler(event, context):
 
     starting_over = False
     if not latest:
-        print('No articles contained in table. Starting over...')
-        latest = datetime.datetime(1900, 1, 1)
+        logging.warning('No articles contained in table. Starting over...')
+        latest = datetime.datetime(1900, 1, 1,1,1,1)
         starting_over = True
 
     cnt = 0
     for start in range(0, MAX_ARTICLES, 1000):
-        if starting_over: print('{:d}/{:d} articles added'.format(start, MAX_ARTICLES))
+        if starting_over: logging.warning('{:d}/{:d} articles added'.format(start, MAX_ARTICLES))
         for q in arxiv.query('cat:cs.LG',max_results=1000, start=start, sort_by='submittedDate'):
             entry = make_entry(q)
             this_time = entry[1]
@@ -78,17 +80,28 @@ def handler(event, context):
                 break
             else:
                 c.execute('''insert into articles
-                             values (%s, %s, %s, %s, %s, %s)''',make_entry(q))
+                             values (%s, %s, %s, %s, %s, %s)''',entry)
                 cnt += 1
         else:
             continue
         break
-    if not starting_over: print('Total number of articles added: {:d}'.format(cnt))
+    logging.warning('Total number of articles added: {:d}'.format(cnt))
     conn.commit()
     conn.close()
 
     return 'Total number of articles added: {:d}'.format(cnt)
 
-if __name__ == '__main__':
-    handler(None,None)
 
+app = Flask(__name__)
+
+
+@app.route('/api/update', methods=['POST'])
+def get_recommendation():
+    try:
+        pull_data()
+        return "{ Success }"
+    except:
+        return "{An error occured while trying to update the database}"
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0',port='6540')

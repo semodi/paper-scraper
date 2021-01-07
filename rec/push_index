@@ -1,3 +1,0 @@
-docker build -t arxiv_indexing -f Dockerfile.index .
-docker tag arxiv_indexing 568319380875.dkr.ecr.us-east-2.amazonaws.com/index_arxiv
-docker push 568319380875.dkr.ecr.us-east-2.amazonaws.com/index_arxiv

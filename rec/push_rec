@@ -1,3 +1,0 @@
-docker build -t arxiv_rec -f Dockerfile.rec .
-docker tag arxiv_rec 568319380875.dkr.ecr.us-east-2.amazonaws.com/recommender_app
-docker push 568319380875.dkr.ecr.us-east-2.amazonaws.com/recommender_app

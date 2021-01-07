@@ -7,8 +7,6 @@ RUN pip install -r requirements.txt
 COPY recommend.py ./
 COPY recommender_app.py ./app.py
 COPY mysql_config.py ./
-COPY wordnet.tar.gz ./
-RUN tar -xzf wordnet.tar.gz
 ENV NLTK_DATA ./
 
 # Set the CMD to your handler

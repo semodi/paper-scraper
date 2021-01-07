@@ -8,7 +8,7 @@ panel_color = '#161a28'
 def get_graph(nodes, A, n_query=0):
     customdata = [json.dumps(node) for node in nodes]
     if n_query >1:
-        clustering = SpectralClustering(n_components = min(n_query,8), affinity='precomputed')
+        clustering = SpectralClustering(n_clusters = min(n_query,8), affinity='precomputed')
         clustering.fit(A)
     G = nx.Graph()
     A = np.array(A)

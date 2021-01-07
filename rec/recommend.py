@@ -21,7 +21,7 @@ import os
 from io import BytesIO
 import pickle
 import boto3
-
+import logging
 logger = gensim.similarities.docsim.logger
 class BufferShard(gensim.similarities.docsim.Shard):
     def __init__(self, fname, index):
@@ -41,31 +41,53 @@ gensim.similarities.docsim.Shard = BufferShard
 
 def pickle_save(obj, fname):
     pickled = pickle.dumps(obj)
-    stream = BytesIO(pickled)
-    s3.upload_fileobj(stream, bucket_name, fname)
-    # with open(fname, 'wb') as file:
-    #     file.write(pickled)
+    # stream = BytesIO(pickled)
+    # s3.upload_fileobj(stream, bucket_name, fname)
+    with open(fname, 'wb') as file:
+        file.write(pickled)
 
 def load_unpickle(fname):
-    stream = BytesIO()
-    s3.download_fileobj(bucket_name, fname, stream)
-    # with open(fname, 'rb') as file:
-    #     obj = pickle.loads(file.read())
-    obj = pickle.loads(stream.getvalue())
+    # stream = BytesIO()
+    # s3.download_fileobj(bucket_name, fname, stream)
+    with open(fname, 'rb') as file:
+        obj = pickle.loads(file.read())
+    # obj = pickle.loads(stream.getvalue())
     return obj
 
 stemmer = PorterStemmer()
-s3 = boto3.client('s3')
-bucket_name = 'arxiv-models'
+# s3 = boto3.client('s3')
+# bucket_name = 'arxiv-models'
 
-idx_to_arxiv = load_unpickle('idx_to_arxiv.pckl')
-tfidf_model = load_unpickle('tfidf_model.pckl')
-corpus_dict = load_unpickle('corpus_dict.pckl')
-index = load_unpickle('similarity_index.pckl')
+class Models:
+    def __init__(self):
+        attrs = ['idx_to_arxiv','tfidf_model','corpus_dict', 'similarity_index']
+        for attr in attrs:
+            try:
+                self.__setattr__(attr, load_unpickle(attr + '.pckl'))
+            except FileNotFoundError:
+                self.__setattr__(attr, None)
+
+    def __getattribute__(self, name):
+        attr = super().__getattribute__(name)
+        if attr is None:
+            try:
+                attr = load_unpickle(name + '.pckl')
+                self.__setattr__(name, attr)
+            except:
+                logging.error(name + '.pckl could not be found')
+                pass
+        return attr
+
+models = Models()
 
 
 def lemmatize_stemming(text):
-    return stemmer.stem(WordNetLemmatizer().lemmatize(text, pos='v'))
+    try:
+        return stemmer.stem(WordNetLemmatizer().lemmatize(text, pos='v'))
+    except LookupError:
+        nltk.download('wordnet')
+        return stemmer.stem(WordNetLemmatizer().lemmatize(text, pos='v'))
+
 
 def connect():
     return pymysql.connect(mysql_config.host,
@@ -137,47 +159,41 @@ def get_recommendations(user_id, cutoff_days = 20, no_papers=10,
     else:
         df_bookmarks = pd.DataFrame(based_on)
     if len(df_bookmarks):
-        articles = (df_bookmarks['title'] + '. ' + df_bookmarks['summary']).tolist()
-        tfidf, _ = get_tfidf(articles, tfidf_model, corpus_dict)
+        try:
+            articles = (df_bookmarks['title'] + '. ' + df_bookmarks['summary']).tolist()
+            tfidf, _ = get_tfidf(articles, models.tfidf_model, models.corpus_dict)
 
-        sim = index[tfidf]
+            sim = models.similarity_index[tfidf]
 
-        no_bm = len(df_bookmarks)
-        sim = np.argsort(sim, axis=-1)[:,::-1].T.flatten()[:(no_papers)*(no_papers)]
-        _, unq = np.unique(sim, return_index=True)
-        sim = sim[np.sort(unq)]
-        sim = sim[:no_papers+no_bm]
-        rec_id = {idx_to_arxiv[s]:i for i, s in enumerate(sim[no_bm:])}
+            no_bm = len(df_bookmarks)
+            sim = np.argsort(sim, axis=-1)[:,::-1].T.flatten()[:(no_papers)*(no_papers)]
+            _, unq = np.unique(sim, return_index=True)
+            sim = sim[np.sort(unq)]
+            sim = sim[:no_papers+no_bm]
+            rec_id = {models.idx_to_arxiv[s]:i for i, s in enumerate(sim[no_bm:])}
 
-        rec = pd.read_sql(""" SELECT * from articles
-                     WHERE id in ('{}')
-                     ORDER BY updated DESC""".format("','".join(rec_id.keys())), conn)
-        rec['updated'] = rec['updated'].apply(str)
-        ordering = [rec_id[id] for id in rec['id']]
-        sim[no_bm:] = [sim[no_bm:][idx] for idx in ordering]
-        A = np.zeros([len(sim),len(sim)])
-        for i, s in enumerate(sim):
-            A[i,:] =  index.similarity_by_id(s)[sim]
+            rec = pd.read_sql(""" SELECT * from articles
+                         WHERE id in ('{}')
+                         ORDER BY updated DESC""".format("','".join(rec_id.keys())), conn)
+            rec['updated'] = rec['updated'].apply(str)
+            ordering = [rec_id[id] for id in rec['id']]
+            sim[no_bm:] = [sim[no_bm:][idx] for idx in ordering]
+            A = np.zeros([len(sim),len(sim)])
+            for i, s in enumerate(sim):
+                A[i,:] =  models.similarity_index.similarity_by_id(s)[sim]
 
+            df_bookmarks['updated'] = df_bookmarks['updated'].apply(str)
+            conn.close()
+            return rec, A, df_bookmarks
+        except Exception as e:
+            conn.close()
+            df_bookmarks['updated'] = df_bookmarks['updated'].apply(str)
+            return pd.DataFrame(), np.ones([len(df_bookmarks),len(df_bookmarks)]), df_bookmarks
+    else:
+        conn.close()
         df_bookmarks['updated'] = df_bookmarks['updated'].apply(str)
-        conn.close()
-        return rec, A, df_bookmarks
-    else:
-        conn.close()
-        return None,None
+        return pd.DataFrame(), np.ones([len(df_bookmarks),len(df_bookmarks)]), df_bookmarks
 
-def handler(event, context):
-
-    if 'body' in event:
-        data = json.loads(event['body'])
-    else:
-        data = event
-    user_id = data.get('user_id', 0)
-    cutoff_days = data.get('cutoff_days', 20)
-    no_papers = data.get('no_papers', 10)
-    results = get_recommendations(user_id, cutoff_days, no_papers).to_dict('records')
-    results.append(event)
-    return results
 
 if __name__ == '__main__':
     create_index()
